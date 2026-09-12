@@ -333,7 +333,7 @@ async function connect(){
   loadLocal(); loadSession(); render();
   if(CFG.supabaseUrl && CFG.supabaseAnonKey){
     try{
-      await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js');
       sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
       const {data,error} = await sb.from('docs').select('coll,id,data');
       if(error) throw error;

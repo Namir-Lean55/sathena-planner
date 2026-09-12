@@ -1,6 +1,6 @@
-// Vul hier de gegevens van je Supabase-project in (Project Settings → API).
-// Zolang deze leeg zijn werkt de app alleen in de browser zelf (localStorage).
+// Supabase-project "Sathena Planner" (organisatie LEAN55).
+// De publishable key is bedoeld voor gebruik in de browser.
 window.SATHENA_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: ""
+  supabaseUrl: "https://bpbjttneycjkdsufgqjk.supabase.co",
+  supabaseAnonKey: "sb_publishable_Xz_jbpH1SaimsFhw1EyZOg_YQJyOFDB"
 };
