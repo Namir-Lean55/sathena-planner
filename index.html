@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2300008B%22/><text x=%2250%22 y=%2268%22 font-size=%2256%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22Arial%22 font-weight=%22bold%22>S</text></svg>">
+<script src="config.js"></script>
+<title>Sathena Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+</head>
+<body>
+<style>
+:root{
+  --bg:#F3F4F8; --surface:#FFFFFF; --surface-2:#F6F7FB; --ink:#191919; --muted:#5F6B85; --line:#E1E4EC; --line-strong:#C3C9D8;
+  --brand:#00008B; --brand-ink:#FFFFFF; --brand-muted:#9DA3D9; --brand-active:#1A1AA6;
+  --accent:#0539F5; --accent-ink:#FFFFFF; --accent-soft:#E6EBFE;
+  --ok:#00935F; --ok-soft:#DDF5EB; --warn:#B7791F; --warn-soft:#FBEFD6; --bad:#D03A3A; --bad-soft:#FBE1E1;
+  --shadow:0 1px 2px rgba(0,0,139,.06),0 8px 24px rgba(0,0,139,.08);
+  --radius:10px;
+  --c-verlof:#00935F;
+  --tint:12%;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1120; --surface:#181B2E; --surface-2:#1F2338; --ink:#ECEEF6; --muted:#9AA3C2; --line:#2B3050; --line-strong:#3D4470;
+    --brand:#060650; --brand-ink:#FFFFFF; --brand-muted:#8A90D0; --brand-active:#15157A;
+    --accent:#5A7CFF; --accent-ink:#FFFFFF; --accent-soft:#1E2A5E;
+    --ok:#4BCB94; --ok-soft:#153426; --warn:#E0A63C; --warn-soft:#3A2D12; --bad:#F26D6D; --bad-soft:#3E1B1B;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+    --c-verlof:#4BCB94;
+    --tint:24%;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1120; --surface:#181B2E; --surface-2:#1F2338; --ink:#ECEEF6; --muted:#9AA3C2; --line:#2B3050; --line-strong:#3D4470;
+  --brand:#060650; --brand-ink:#FFFFFF; --brand-muted:#8A90D0; --brand-active:#15157A;
+  --accent:#5A7CFF; --accent-ink:#FFFFFF; --accent-soft:#1E2A5E;
+  --ok:#4BCB94; --ok-soft:#153426; --warn:#E0A63C; --warn-soft:#3A2D12; --bad:#F26D6D; --bad-soft:#3E1B1B;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  --c-verlof:#4BCB94;
+  --tint:24%;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14.5px;line-height:1.45;font-variant-numeric:tabular-nums}
+h1,h2,h3,.display{font-family:"Inter Tight","Inter",system-ui,sans-serif;font-weight:600;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1{font-size:26px} h2{font-size:22px} h3{font-size:17px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+.eyebrow{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.logo{display:block;height:auto}
+
+/* ---------- login ---------- */
+.login-wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+.login{width:min(430px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.login-head{padding:28px 28px 8px;display:grid;justify-items:center;gap:6px;text-align:center}
+.login-head .logo{width:220px}
+.login-head .sub{color:var(--muted);font-size:13px}
+.login-body{padding:18px 28px 26px;display:grid;gap:14px}
+.field{display:grid;gap:6px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.input,select.input,textarea.input{width:100%;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink)}
+textarea.input{resize:vertical;min-height:70px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);font-weight:600;line-height:1.2;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(.93)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.sm{padding:5px 11px;font-size:13px}
+.btn.icon{padding:5px 10px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hint{background:var(--surface-2);border:1px dashed var(--line-strong);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--muted)}
+.hint code{font-family:ui-monospace,Menlo,monospace;color:var(--ink);background:var(--surface);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+.error{color:var(--bad);font-size:13px;font-weight:600}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:224px 1fr;min-height:100vh}
+.rail{background:var(--brand);color:var(--brand-ink);display:flex;flex-direction:column;padding:20px 12px 14px;gap:4px;position:sticky;top:0;height:100vh}
+.rail .brand{padding:2px 10px 18px}
+.rail .brand .logo{width:150px;filter:brightness(0) invert(1)}
+.rail .brand .sub{color:var(--brand-muted);font-size:12px;margin-top:6px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:0;background:transparent;color:var(--brand-ink);text-align:left;width:100%;font-weight:500}
+.nav-btn:hover{background:var(--brand-active)}
+.nav-btn.active{background:var(--surface);color:var(--brand);font-weight:600}
+.nav-btn .badge{margin-left:auto;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px}
+.nav-btn.active .badge{background:var(--accent)}
+.rail .spacer{flex:1}
+.rail .who{padding:10px 12px;border-top:1px solid var(--brand-active);font-size:13px;color:var(--brand-muted)}
+.rail .who b{color:var(--brand-ink);display:block}
+.rail .sync{font-size:11.5px;color:var(--brand-muted);padding:6px 12px 0;display:flex;align-items:center;gap:6px}
+.rail .sync i{width:7px;height:7px;border-radius:50%;background:#4BCB94;display:inline-block}
+.rail .sync.local i{background:var(--warn)}
+.main{padding:22px 26px 60px;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.topbar h2{font-size:24px}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.weeknav{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.weeknav .label{padding:0 10px;font-weight:600;min-width:200px;text-align:center}
+.weeknav input[type=date]{border:0;background:transparent;padding:4px;color:var(--muted)}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;margin-bottom:14px}
+
+/* ---------- summary strip ---------- */
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;display:grid;gap:5px;min-width:0}
+.day.today{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.day .dn{display:flex;justify-content:space-between;align-items:baseline}
+.day .dn b{font-family:"Inter Tight",sans-serif;font-size:17px;text-transform:capitalize}
+.day .dn span{color:var(--muted);font-size:13px}
+.day .kv{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.day .kv b{color:var(--ink);font-weight:600}
+.delta{display:inline-flex;align-items:center;justify-content:center;font-family:"Inter Tight",sans-serif;font-weight:700;font-size:18px;border-radius:6px;padding:1px 8px;line-height:1.3}
+.delta.ok{background:var(--ok-soft);color:var(--ok)} .delta.warn{background:var(--warn-soft);color:var(--warn)} .delta.bad{background:var(--bad-soft);color:var(--bad)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
+.legend .sw{display:inline-flex;align-items:center;gap:5px}
+.legend .sw i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* ---------- grid ---------- */
+.gridwrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:auto}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:880px}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);padding:0;text-align:left;vertical-align:middle}
+table.grid thead th{position:sticky;top:0;background:var(--surface-2);z-index:2;padding:8px 10px;font-size:13px;font-weight:600;color:var(--muted)}
+table.grid thead th.today{color:var(--accent)}
+table.grid th.name,table.grid td.name{position:sticky;left:0;background:var(--surface);z-index:1;padding:6px 12px;min-width:220px;border-right:1px solid var(--line)}
+table.grid thead th.name{z-index:3;background:var(--surface-2)}
+table.grid td.name .n{font-weight:600;display:flex;align-items:center;gap:6px}
+table.grid td.name .s{font-size:12px;color:var(--muted)}
+table.grid tr.group td{background:var(--surface-2);padding:6px 12px;font-family:"Inter Tight",sans-serif;font-weight:600;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+table.grid td.cell{padding:4px;width:12%;min-width:98px}
+table.grid td.cell.na{background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--line) 60%,transparent) 6px 7px)}
+.chip{display:flex;align-items:center;justify-content:center;height:34px;border-radius:7px;font-weight:600;font-size:13px;border:1px solid transparent;width:100%;background:transparent;padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.empty{color:transparent}
+.chip.clickable:hover{border-color:var(--line-strong);background:var(--surface-2);color:var(--muted)}
+.chip.clickable.empty:hover::after{content:"+";color:var(--muted);font-size:16px}
+.chip.t{color:var(--tc);background:color-mix(in srgb,var(--tc) var(--tint),transparent);border-color:color-mix(in srgb,var(--tc) 35%,transparent)}
+.chip.avail{color:var(--muted);border:1px dashed var(--line-strong);font-weight:500}
+.chip.avail.clickable:hover{color:var(--ink)}
+.chip.verlof{color:var(--c-verlof);background:color-mix(in srgb,var(--c-verlof) var(--tint),transparent);border-color:color-mix(in srgb,var(--c-verlof) 35%,transparent);cursor:default}
+.chip .bus{margin-left:6px;font-size:11px;font-weight:700;opacity:.85;border-left:1px solid currentColor;padding-left:6px}
+.flex-mark{display:inline-block;font-size:10px;font-weight:700;padding:0 5px;border-radius:99px;background:var(--accent-soft);color:var(--accent);letter-spacing:.04em}
+
+/* ---------- popover ---------- */
+.popover{position:fixed;z-index:50;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow);padding:6px;min-width:236px;display:grid;gap:2px}
+.popover .ph{padding:6px 10px 4px;font-size:12px;color:var(--muted)}
+.popover .ph b{color:var(--ink);display:block;font-size:14px}
+.popover .sec{padding:6px 10px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.popover button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 10px;border-radius:7px;text-align:left;font-weight:500}
+.popover button:hover{background:var(--surface-2)}
+.popover button i{width:12px;height:12px;border-radius:3px;background:var(--tc);flex:none}
+.popover button.current{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.popover hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+
+/* ---------- cards / panels ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.panel + .panel{margin-top:14px}
+.panel h3{margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr);gap:14px;align-items:start}
+table.list{width:100%;border-collapse:collapse}
+table.list th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+table.list td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tr:last-child td{border-bottom:0}
+table.list .input,table.list select.input{padding:6px 8px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid transparent}
+.pill.open{background:var(--warn-soft);color:var(--warn)} .pill.goedgekeurd{background:var(--ok-soft);color:var(--ok)} .pill.afgewezen{background:var(--bad-soft);color:var(--bad)}
+.pill.final{background:var(--ok-soft);color:var(--ok)} .pill.concept{background:var(--surface-2);color:var(--muted);border-color:var(--line)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+pre.export{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;margin:0;max-height:420px;overflow:auto}
+.stack{display:grid;gap:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.leave-card{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.leave-card .who{font-weight:600}
+.leave-card .period{font-family:"Inter Tight",sans-serif;font-size:17px;font-weight:600}
+.leave-card .conf{font-size:13px;color:var(--warn);font-weight:600}
+.empty-state{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--radius)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--brand);color:#fff;padding:10px 16px;border-radius:999px;box-shadow:var(--shadow);font-weight:600;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.needs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.needs .field input{text-align:center;font-family:"Inter Tight",sans-serif;font-size:20px;font-weight:600;padding:6px}
+.swatches{display:flex;gap:4px}
+.swatches button{width:22px;height:22px;border-radius:6px;border:2px solid transparent;padding:0}
+.swatches button.sel{border-color:var(--ink)}
+.avail{display:flex;gap:3px}
+.avail label{display:grid;place-items:center;width:28px;height:26px;border:1px solid var(--line-strong);border-radius:6px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none}
+.avail input{position:absolute;opacity:0;width:0;height:0}
+.avail label.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap}
+
+/* ---------- employee view ---------- */
+.mydays{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.myday{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:grid;gap:8px;min-height:118px}
+.myday.today{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.myday .dn b{font-family:"Inter Tight",sans-serif;font-size:18px;text-transform:capitalize;display:block}
+.myday .dn span{font-size:13px;color:var(--muted)}
+.myday .what{font-weight:600;font-size:15px}
+.myday .what.t{color:var(--tc)}
+.myday .what.none{color:var(--muted);font-weight:500}
+.myday .busline{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:5px 8px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line)}
+.myday .busline.pending{color:var(--muted);font-weight:500}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px}
+  .rail .brand{padding:0 10px 0 0}
+  .rail .brand .logo{width:110px}
+  .rail .brand .sub{display:none}
+  .rail .spacer,.rail .who,.rail .sync{display:none}
+  .nav-btn{width:auto;padding:7px 10px}
+  .main{padding:16px 14px 60px}
+  .days{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .two{grid-template-columns:1fr}
+  .needs{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .weeknav .label{min-width:0}
+}
+</style>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================== Config & defaults ============================== */
+const CFG = window.SATHENA_CONFIG || {};
+const LOGO = 'data:image/png;base64,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';
+const PLANNER_USER = 'planner';
+const DEFAULT_PLANNER_PASSWORD = 'planner2026';
+const DEFAULT_EMPLOYEE_PASSWORD = 'sathena';
+const WEEKDAYS = ['maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag','zondag'];
+const WD_SHORT = ['ma','di','wo','do','vr','za','zo'];
+const MONTHS = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+const GROUPS = [['chauffeur','Chauffeurs'],['bijrijder','Bijrijders'],['kantoor','Kantoor']];
+const COLORS = ['#0539F5','#DD6B20','#6B46C1','#718096','#0F8B8D','#B83280','#975A16','#00935F'];
+
+function newEmp(name,group){ return {id:'m'+uid(),name,group:group||'chauffeur',skill:'',phone:'',counts:group!=='kantoor',fixed:true,avail:[1,1,1,1,1,0,0]}; }
+const DEFAULT_SETTINGS = {
+  company:'Sathena',
+  needs:[10,10,10,10,10,5,0],
+  types:[
+    {id:'normaal',name:'Normale dienst',short:'Normaal',color:'#0539F5'},
+    {id:'afhaal',name:'Afhaal-dienst (avond)',short:'Afhaal',color:'#DD6B20'},
+    {id:'nacht',name:'Nachtdienst',short:'Nacht',color:'#6B46C1'},
+    {id:'magazijn',name:'Magazijn',short:'Magazijn',color:'#718096'},
+  ],
+  buses:[],
+  employees:[],
+  plannerPassword:DEFAULT_PLANNER_PASSWORD,
+  employeePassword:DEFAULT_EMPLOYEE_PASSWORD,
+};
+
+/* ============================== Date helpers ============================== */
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseISO = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const wdIndex = d => (d.getDay()+6)%7;
+const monday = d => addDays(d,-wdIndex(d));
+function isoWeek(d){
+  const x = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day = x.getUTCDay()||7; x.setUTCDate(x.getUTCDate()+4-day);
+  const y0 = new Date(Date.UTC(x.getUTCFullYear(),0,1));
+  return {year:x.getUTCFullYear(), week:Math.ceil((((x-y0)/86400000)+1)/7)};
+}
+const weekId = d => { const w=isoWeek(d); return `${w.year}-W${pad(w.week)}`; };
+const fmtLong = d => `${WEEKDAYS[wdIndex(d)]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+const fmtShort = d => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
+const fmtNL = s => { const d=parseISO(s); return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`; };
+const todayISO = () => iso(new Date());
+function daysBetween(a,b){ const out=[]; let d=parseISO(a); const e=parseISO(b); while(d<=e){ out.push(iso(d)); d=addDays(d,1);} return out; }
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* ============================== State & storage ============================== */
+/* Drie opslagvormen, in volgorde van voorkeur:
+   1. Supabase (SATHENA_CONFIG.supabaseUrl + supabaseAnonKey) — tabel "docs"(coll,id,data)
+   2. Artifact db (claude.use('db'))
+   3. localStorage (alleen deze browser) */
+let backend = 'local', db = null, sb = null, downloads = null, loaded = false;
+let S = { settings:null, weeks:{}, leave:{}, dayplans:{} };
+let session = null;
+let V = { page:'rooster', weekStart: iso(monday(new Date())), planDate: todayISO(), menu:null, leaveTab:'open', myWeek: iso(monday(new Date())), confirm:null };
+const LS_KEY = 'sathena.planner.v1';
+
+function loadLocal(){ try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const o=JSON.parse(raw); S={settings:o.settings||null,weeks:o.weeks||{},leave:o.leave||{},dayplans:o.dayplans||{}}; } }catch(e){} }
+function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){} }
+function loadSession(){ try{ session = JSON.parse(localStorage.getItem('sathena.session')||'null'); }catch(e){ session=null } }
+function saveSession(){ try{ session? localStorage.setItem('sathena.session',JSON.stringify(session)) : localStorage.removeItem('sathena.session'); }catch(e){} }
+
+function normalizeSettings(s){
+  if(!s) return null;
+  s.buses = (s.buses||[]).map(b=>({id:b.id, name:(b.plate&&b.plate.trim()) || b.name || ''}));
+  s.employees = (s.employees||[]).map(e=>({fixed:true,avail:[1,1,1,1,1,0,0],counts:true,skill:'',phone:'',...e}));
+  s.types = s.types||[]; s.needs = s.needs||[0,0,0,0,0,0,0];
+  if(!s.plannerPassword) s.plannerPassword = DEFAULT_PLANNER_PASSWORD;
+  if(!s.employeePassword) s.employeePassword = DEFAULT_EMPLOYEE_PASSWORD;
+  if(!s.company) s.company='Sathena';
+  return s;
+}
+const settings = () => S.settings || DEFAULT_SETTINGS;
+const empById = id => settings().employees.find(e=>e.id===id);
+const typeById = id => settings().types.find(t=>t.id===id);
+const busById = id => settings().buses.find(b=>b.id===id);
+const clone = o => JSON.parse(JSON.stringify(o));
+
+async function writeDoc(coll,id,data){
+  data = clone(data);
+  if(coll==='settings') S.settings=normalizeSettings(data); else S[coll][id]=data;
+  render();
+  try{
+    if(backend==='supabase'){ const {error} = await sb.from('docs').upsert({coll,id,data,updated_at:new Date().toISOString()}); if(error) throw error; }
+    else if(backend==='artifact'){ await db.doc(`${coll}/${id}`).set(data); }
+    else saveLocal();
+  }catch(e){ toast('Opslaan mislukt: '+(e.message||e.code||'onbekende fout')); }
+}
+async function deleteDoc(coll,id){
+  delete S[coll][id]; render();
+  try{
+    if(backend==='supabase'){ const {error} = await sb.from('docs').delete().match({coll,id}); if(error) throw error; }
+    else if(backend==='artifact'){ await db.doc(`${coll}/${id}`).delete(); }
+    else saveLocal();
+  }catch(e){ toast('Verwijderen mislukt'); }
+}
+function applyRow(row){ if(row.coll==='settings') S.settings=normalizeSettings(row.data); else if(S[row.coll]) S[row.coll][row.id]=row.data; }
+
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+
+async function connect(){
+  loadLocal(); loadSession(); render();
+  if(CFG.supabaseUrl && CFG.supabaseAnonKey){
+    try{
+      await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js');
+      sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
+      const {data,error} = await sb.from('docs').select('coll,id,data');
+      if(error) throw error;
+      backend='supabase'; S={settings:null,weeks:{},leave:{},dayplans:{}};
+      (data||[]).forEach(applyRow); loaded=true; render();
+      sb.channel('docs-live').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
+        if(p.eventType==='DELETE'){ const o=p.old||{}; if(o.coll==='settings') S.settings=null; else if(S[o.coll]) delete S[o.coll][o.id]; }
+        else applyRow(p.new);
+        render();
+      }).subscribe();
+    }catch(e){ backend='local'; loaded=true; toast('Supabase niet bereikbaar, werkt nu lokaal'); render(); }
+  } else if(window.claude && typeof window.claude.use==='function'){
+    try{ db = await window.claude.use('db'); }catch(e){ db=null; }
+    if(db){
+      backend='artifact'; S={settings:null,weeks:{},leave:{},dayplans:{}};
+      const err = e => { if(e && e.code!=='unavailable') toast('Verbinding met opslag verbroken'); };
+      db.doc('settings/main').onSnapshot(s=>{ S.settings = s.exists ? normalizeSettings(s.data()) : null; loaded=true; render(); }, err);
+      for(const coll of ['weeks','leave','dayplans']){
+        db.collection(coll).onSnapshot(q=>{ const m={}; q.docs.forEach(d=>m[d.id]=d.data()); S[coll]=m; render(); }, err);
+      }
+    } else { loaded=true; }
+    try{ downloads = await window.claude.use('downloads'); }catch(e){ downloads=null; }
+  } else { loaded=true; if(S.settings) S.settings=normalizeSettings(S.settings); }
+  render();
+}
+
+/* ============================== Domain logic ============================== */
+function weekDoc(dateISO){ return S.weeks[weekId(parseISO(dateISO))] || null; }
+function shiftsFor(dateISO){ const w=weekDoc(dateISO); return (w && w.shifts && w.shifts[dateISO]) || {}; }
+function getShift(empId,dateISO){ return shiftsFor(dateISO)[empId] || null; }
+function weekAvail(empId,dateISO){ const w=weekDoc(dateISO); return !!(w && w.avail && w.avail[dateISO] && w.avail[dateISO][empId]); }
+async function mutateWeek(dateISO,fn){
+  const wid = weekId(parseISO(dateISO));
+  const w = clone(S.weeks[wid] || {id:wid,shifts:{},avail:{}});
+  w.shifts = w.shifts||{}; w.avail = w.avail||{};
+  fn(w);
+  for(const k of ['shifts','avail']) for(const d of Object.keys(w[k])) if(!Object.keys(w[k][d]).length) delete w[k][d];
+  w.updatedAt = new Date().toISOString();
+  await writeDoc('weeks',wid,w);
+}
+const setShift = (empId,dateISO,typeId) => mutateWeek(dateISO,w=>{
+  w.shifts[dateISO]=w.shifts[dateISO]||{}; w.avail[dateISO]=w.avail[dateISO]||{};
+  if(typeId){ w.shifts[dateISO][empId]=typeId; w.avail[dateISO][empId]=true; } else delete w.shifts[dateISO][empId];
+});
+const setAvail = (empId,dateISO,on) => mutateWeek(dateISO,w=>{
+  w.avail[dateISO]=w.avail[dateISO]||{}; w.shifts[dateISO]=w.shifts[dateISO]||{};
+  if(on) w.avail[dateISO][empId]=true; else { delete w.avail[dateISO][empId]; delete w.shifts[dateISO][empId]; }
+});
+function leaveOn(empId,dateISO){ return Object.values(S.leave).find(l=>l.empId===empId && l.status==='goedgekeurd' && l.from<=dateISO && dateISO<=l.to) || null; }
+function isAvailable(e,dateISO){
+  if(leaveOn(e.id,dateISO)) return false;
+  if(getShift(e.id,dateISO)) return true;
+  return e.fixed ? !!e.avail[wdIndex(parseISO(dateISO))] : weekAvail(e.id,dateISO);
+}
+function availableOn(dateISO){ return settings().employees.filter(e=>e.counts && isAvailable(e,dateISO)); }
+function plannedOn(dateISO){ return Object.entries(shiftsFor(dateISO)).filter(([id])=>!leaveOn(id,dateISO) && empById(id)); }
+function needOn(dateISO){ return Number(settings().needs[wdIndex(parseISO(dateISO))]||0); }
+function deltaClass(n){ return n>=0 ? (n===0?'warn':'ok') : 'bad'; }
+function openLeaveCount(){ return Object.values(S.leave).filter(l=>l.status==='open').length; }
+function conflictsFor(l){ return daysBetween(l.from,l.to).filter(d=>getShift(l.empId,d)).length; }
+
+async function decideLeave(id,status){
+  const l = clone(S.leave[id]); if(!l) return;
+  l.status=status; l.decidedAt=new Date().toISOString(); l.decidedBy='planner';
+  await writeDoc('leave',id,l);
+  if(status==='goedgekeurd'){
+    const byWeek = {};
+    for(const d of daysBetween(l.from,l.to)){ if(getShift(l.empId,d)) (byWeek[weekId(parseISO(d))] = byWeek[weekId(parseISO(d))]||[]).push(d); }
+    for(const days of Object.values(byWeek)) await mutateWeek(days[0], w=>{ days.forEach(d=>{ if(w.shifts[d]) delete w.shifts[d][l.empId]; }); });
+  }
+  toast(status==='goedgekeurd'?'Verlof goedgekeurd':'Verlof afgewezen');
+}
+
+function dayplanFor(dateISO){ return S.dayplans[dateISO] || null; }
+function rowsFromRoster(dateISO){
+  const order = settings().employees.map(e=>e.id);
+  return plannedOn(dateISO).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0])).map(([empId,typeId])=>({empId,typeId,busId:'',note:''}));
+}
+async function savePlan(dateISO,plan){ plan.date=dateISO; plan.updatedAt=new Date().toISOString(); await writeDoc('dayplans',dateISO,plan); }
+async function updatePlan(mut){
+  const p = clone(dayplanFor(V.planDate) || {date:V.planDate,final:false,rows:rowsFromRoster(V.planDate)});
+  mut(p); await savePlan(V.planDate,p);
+}
+function exportText(dateISO){
+  const p = dayplanFor(dateISO); const d=parseISO(dateISO); const st=settings();
+  const lines = [`*Dagplanning ${fmtLong(d)}*`, st.company, ''];
+  const rows = p ? p.rows : [];
+  const groupsOrder = [...st.types.map(t=>t.id),''];
+  let total=0, buses=new Set();
+  for(const tid of groupsOrder){
+    const rs = rows.filter(r=>(r.typeId||'')===tid); if(!rs.length) continue;
+    lines.push(`*${tid ? (typeById(tid)||{}).name || tid : 'Overig'}*`);
+    for(const r of rs){
+      const e=empById(r.empId); const b=busById(r.busId);
+      let line = `${b ? b.name : 'Geen bus'} · ${e?e.name:'?'}`;
+      if(r.note) line += ` — ${r.note}`;
+      lines.push(line); total++; if(b) buses.add(b.id);
+    }
+    lines.push('');
+  }
+  lines.push(`Totaal: ${total} medewerkers, ${buses.size} bussen`);
+  if(!p || !p.final) lines.push('(concept — nog niet definitief)');
+  return lines.join('\n');
+}
+
+/* ============================== UI helpers ============================== */
+let toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
+async function copyText(text){ try{ await navigator.clipboard.writeText(text); toast('Gekopieerd — plak in WhatsApp'); }catch(e){ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('Gekopieerd'); }catch(_){ toast('Kopiëren niet gelukt'); } ta.remove(); } }
+async function shareText(text,title){ if(navigator.share){ try{ await navigator.share({title,text}); }catch(e){} } else copyText(text); }
+async function downloadText(text,filename){
+  if(downloads){ try{ await downloads.save({filename,data:text}); toast('Bestand opgeslagen'); }catch(e){ if(e && e.code!=='declined') toast('Downloaden niet gelukt'); } return; }
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }catch(e){ copyText(text); }
+}
+function typeStyle(t){ return `--tc:${t?t.color:'var(--muted)'}`; }
+
+/* ============================== Render ============================== */
+const app = document.getElementById('app');
+function render(){
+  if(!session){ app.innerHTML = renderLogin(); return; }
+  const isPlanner = session.role==='planner';
+  const pages = isPlanner
+    ? [['rooster','Weekrooster'],['dagplanning','Dagplanning'],['verlof','Verlofaanvragen'],['instellingen','Instellingen']]
+    : [['mijn','Mijn rooster'],['mijnverlof','Mijn verlof']];
+  if(!pages.some(p=>p[0]===V.page)) V.page = pages[0][0];
+  const open = openLeaveCount();
+  app.innerHTML = `
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand"><img class="logo" src="${LOGO}" alt="${esc(settings().company)}"><div class="sub">Planner</div></div>
+      ${pages.map(([id,label])=>`<button class="nav-btn ${V.page===id?'active':''}" data-nav="${id}">${label}${id==='verlof'&&open?`<span class="badge">${open}</span>`:''}</button>`).join('')}
+      <div class="spacer"></div>
+      <div class="sync ${backend==='local'?'local':''}"><i></i>${backend==='supabase'?'Online database':backend==='artifact'?'Gedeelde opslag':'Alleen deze browser'}</div>
+      <div class="who"><b>${esc(isPlanner?'Planner':(empById(session.empId)||{}).name||'Medewerker')}</b>${isPlanner?'Kan alles aanpassen':'Alleen inzien en verlof aanvragen'}</div>
+      <button class="nav-btn" data-logout>Uitloggen</button>
+    </aside>
+    <main class="main">${
+      V.page==='rooster' ? renderRooster() :
+      V.page==='dagplanning' ? renderDagplanning() :
+      V.page==='verlof' ? renderVerlof() :
+      V.page==='instellingen' ? renderInstellingen() :
+      V.page==='mijn' ? renderMijn() :
+      renderMijnVerlof()
+    }</main>
+  </div>
+  ${V.menu ? renderMenu() : ''}`;
+}
+
+function renderLogin(){
+  const st=settings(); const emps = st.employees; const defaults = st.plannerPassword===DEFAULT_PLANNER_PASSWORD && st.employeePassword===DEFAULT_EMPLOYEE_PASSWORD;
+  return `<div class="login-wrap"><form class="login" id="loginForm">
+    <div class="login-head"><img class="logo" src="${LOGO}" alt="Sathena"><div class="sub">Planner · rooster, verlof en dagplanning</div></div>
+    <div class="login-body">
+      <div class="field"><label for="lu">Wie ben je?</label>
+        <select class="input" id="lu" name="user" ${loaded?'':'disabled'}>
+          ${loaded ? `<option value="${PLANNER_USER}">Planner</option>
+          ${GROUPS.map(([g,label])=>{ const es=emps.filter(e=>e.group===g); return es.length?`<optgroup label="${label}">${es.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`:''; }).join('')}` : `<option>Laden…</option>`}
+        </select></div>
+      <div class="field"><label for="lp">Wachtwoord</label><input class="input" id="lp" name="pw" type="password" autocomplete="current-password" required></div>
+      <div class="error" id="loginErr"></div>
+      <button class="btn primary" type="submit" ${loaded?'':'disabled'}>Inloggen</button>
+      ${defaults ? `<div class="hint">Standaardwachtwoorden: planner <code>${DEFAULT_PLANNER_PASSWORD}</code>, medewerkers <code>${DEFAULT_EMPLOYEE_PASSWORD}</code>. Aan te passen bij Instellingen.</div>` : `<div class="small muted" style="text-align:center">Wachtwoord vergeten? Vraag het aan de planner.</div>`}
+    </div></form></div>`;
+}
+
+/* ---------- Weekrooster (planner) ---------- */
+function weekDays(startISO){ const s=parseISO(startISO); return Array.from({length:7},(_,i)=>iso(addDays(s,i))); }
+function weekLabel(startISO){ const s=parseISO(startISO), e=addDays(s,6); const w=isoWeek(s); return `Week ${w.week} · ${fmtShort(s)} – ${fmtShort(e)} ${e.getFullYear()}`; }
+function renderWeekNav(startISO,key){
+  return `<div class="weeknav">
+    <button class="btn icon ghost" data-wk="${key}" data-delta="-7" aria-label="Vorige week">‹</button>
+    <span class="label">${weekLabel(startISO)}</span>
+    <button class="btn icon ghost" data-wk="${key}" data-delta="7" aria-label="Volgende week">›</button>
+    <button class="btn sm ghost" data-wk="${key}" data-delta="0">Vandaag</button>
+    <input type="date" value="${startISO}" data-wkdate="${key}" aria-label="Kies week">
+  </div>`;
+}
+function renderSummary(days){
+  const t=todayISO();
+  return `<div class="days">${days.map(d=>{
+    const av=availableOn(d).length, pl=plannedOn(d).length, need=needOn(d), delta=av-need, dd=parseISO(d);
+    const byType = settings().types.map(ty=>[ty, plannedOn(d).filter(([,tid])=>tid===ty.id).length]).filter(([,n])=>n);
+    return `<div class="day ${d===t?'today':''}">
+      <div class="dn"><b>${WD_SHORT[wdIndex(dd)]}</b><span>${fmtShort(dd)}</span></div>
+      <div class="kv"><span>Beschikbaar</span><b>${av}</b></div>
+      <div class="kv"><span>Behoefte</span><b>${need}</b></div>
+      <div class="kv"><span>Gepland</span><b title="${byType.map(([ty,n])=>`${n} ${ty.short}`).join(', ')}">${pl}</b></div>
+      <div class="kv"><span>Delta</span><span class="delta ${deltaClass(delta)}">${delta>0?'+':''}${delta}</span></div>
+    </div>`; }).join('')}</div>`;
+}
+function renderRooster(){
+  const days = weekDays(V.weekStart); const st=settings(); const t=todayISO();
+  const flexCount = st.employees.filter(e=>!e.fixed).length;
+  return `<div class="topbar"><div><div class="eyebrow">Planning</div><h2>Weekrooster</h2></div>
+    <div class="toolbar">${renderWeekNav(V.weekStart,'planner')}</div></div>
+  ${!st.employees.length?`<div class="banner">Nog geen medewerkers. Voeg ze toe bij Instellingen.</div>`:''}
+  ${renderSummary(days)}
+  <div class="legend" style="margin-bottom:10px">
+    <span>Klik op een vak om te plannen${flexCount?` of beschikbaarheid in te vullen`:''}.</span>
+    ${st.types.map(ty=>`<span class="sw"><i style="background:${ty.color}"></i>${esc(ty.name)}</span>`).join('')}
+    ${flexCount?`<span class="sw"><i style="border:1px dashed var(--line-strong)"></i>Beschikbaar, nog niet ingepland</span>`:''}
+    <span class="sw"><i style="background:var(--c-verlof)"></i>Verlof</span>
+    <span class="sw"><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line-strong) 3px 4px)"></i>Niet beschikbaar</span>
+    ${flexCount?`<span class="sw"><span class="flex-mark">FLEX</span> geeft beschikbaarheid per week door</span>`:''}
+  </div>
+  <div class="gridwrap"><table class="grid">
+    <thead><tr><th class="name">Medewerker</th>${days.map(d=>{const dd=parseISO(d);return `<th class="${d===t?'today':''}">${WEEKDAYS[wdIndex(dd)]}<br><span class="muted">${fmtShort(dd)}</span></th>`}).join('')}</tr></thead>
+    <tbody>${GROUPS.map(([g,label])=>{
+      const emps = st.employees.filter(e=>e.group===g); if(!emps.length) return '';
+      return `<tr class="group"><td colspan="8">${label} · ${emps.length}</td></tr>` + emps.map(e=>`<tr>
+        <td class="name"><div class="n">${esc(e.name)}${e.fixed?'':'<span class="flex-mark">FLEX</span>'}</div><div class="s">${e.skill?`<span class="tag">${esc(e.skill)}</span> `:''}${e.phone?esc(e.phone):''}</div></td>
+        ${days.map(d=>renderCell(e,d,true)).join('')}
+      </tr>`).join('');
+    }).join('')}</tbody>
+  </table></div>`;
+}
+function renderCell(e,d,editable){
+  const lv = leaveOn(e.id,d);
+  if(lv) return `<td class="cell"><div class="chip verlof" title="Verlof ${fmtNL(lv.from)} t/m ${fmtNL(lv.to)}">Verlof</div></td>`;
+  const tid = getShift(e.id,d); const ty = tid ? typeById(tid) : null;
+  const avail = isAvailable(e,d);
+  const plan = dayplanFor(d); const row = plan && plan.final ? plan.rows.find(r=>r.empId===e.id) : null; const bus = row && busById(row.busId);
+  const cls = ty ? 'chip t' : (avail && !e.fixed ? 'chip avail' : 'chip empty');
+  const title = ty ? ty.name : avail ? (e.fixed?'Beschikbaar volgens vast rooster':'Beschikbaar opgegeven, nog niet ingepland') : (e.fixed?'Niet beschikbaar volgens vast rooster':'Geen beschikbaarheid opgegeven voor deze dag');
+  const label = ty ? (ty.short||ty.name) : (avail && !e.fixed ? 'Beschikbaar' : '·');
+  return `<td class="cell ${!avail&&!ty?'na':''}"><button class="${cls} ${editable?'clickable':''}" style="${typeStyle(ty)}" ${editable?`data-cell="${e.id}|${d}"`:''} title="${esc(title)}">${esc(label)}${bus?`<span class="bus">${esc(bus.name)}</span>`:''}</button></td>`;
+}
+function renderMenu(){
+  const m=V.menu; const e=empById(m.empId); const cur=getShift(m.empId,m.date); const st=settings();
+  const av = weekAvail(m.empId,m.date);
+  const rows = st.types.length + (e.fixed?0:2) + 3;
+  const x=Math.min(m.x, window.innerWidth-250), y=Math.min(m.y, window.innerHeight-(rows*38+60));
+  return `<div class="popover" style="left:${x}px;top:${Math.max(8,y)}px" id="menu">
+    <div class="ph">${fmtLong(parseISO(m.date))}<b>${esc(e.name)}</b></div>
+    ${e.fixed?'':`<div class="sec">Beschikbaarheid deze dag</div>
+      <button data-avail="1" class="${av&&!cur?'current':''}"><i style="background:transparent;border:1px dashed var(--line-strong)"></i>Beschikbaar</button>
+      <button data-avail="0" class="${!av&&!cur?'current':''}"><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line-strong) 3px 4px)"></i>Niet beschikbaar</button>
+      <div class="sec">Dienst inplannen</div>`}
+    ${st.types.map(t=>`<button data-pick="${t.id}" class="${cur===t.id?'current':''}" style="${typeStyle(t)}"><i></i>${esc(t.name)}</button>`).join('')}
+    <hr><button data-pick=""><i style="background:transparent;border:1px solid var(--line-strong)"></i>Dienst leegmaken</button>
+  </div>`;
+}
+
+/* ---------- Dagplanning (planner) ---------- */
+function renderDagplanning(){
+  const d = V.planDate; const dd=parseISO(d); const plan = dayplanFor(d); const st=settings();
+  const rows = plan ? plan.rows : rowsFromRoster(d);
+  const notPlanned = rows.filter(r=>!getShift(r.empId,d)).length;
+  const usedBus = {}; rows.forEach(r=>{ if(r.busId) usedBus[r.busId]=(usedBus[r.busId]||0)+1; });
+  const dup = Object.values(usedBus).some(n=>n>1);
+  const text = plan ? exportText(d) : null;
+  return `<div class="topbar"><div><div class="eyebrow">Definitief per dag</div><h2>Dagplanning</h2></div>
+    <div class="toolbar"><div class="weeknav">
+      <button class="btn icon ghost" data-day="-1" aria-label="Vorige dag">‹</button>
+      <span class="label" style="text-transform:capitalize">${fmtLong(dd)}</span>
+      <button class="btn icon ghost" data-day="1" aria-label="Volgende dag">›</button>
+      <button class="btn sm ghost" data-day="0">Vandaag</button>
+      <input type="date" value="${d}" id="planDate" aria-label="Kies dag">
+    </div></div></div>
+  <div class="two">
+    <div class="panel">
+      <h3>Bussen toewijzen <span class="pill ${plan&&plan.final?'final':'concept'}">${plan?(plan.final?'Definitief':'Concept'):'Nog niet opgeslagen'}</span></h3>
+      <div class="row small muted" style="margin-bottom:10px">
+        <span>${plannedOn(d).length} ingepland in het weekrooster · ${availableOn(d).length} beschikbaar · behoefte ${needOn(d)}</span>
+      </div>
+      ${dup?`<div class="hint" style="color:var(--warn);margin-bottom:10px">Let op: een bus is meer dan één keer toegewezen.</div>`:''}
+      ${notPlanned?`<div class="hint" style="margin-bottom:10px">${notPlanned} medewerker(s) in deze dagplanning staan niet in het weekrooster voor deze dag.</div>`:''}
+      <div style="overflow-x:auto"><table class="list">
+        <thead><tr><th>Medewerker</th><th>Dienst</th><th>Bus</th><th>Opmerking</th><th></th></tr></thead>
+        <tbody>${rows.length? rows.map((r,i)=>`<tr>
+          <td><select class="input" data-prow="${i}" data-pf="empId">${st.employees.map(e=>`<option value="${e.id}" ${e.id===r.empId?'selected':''}>${esc(e.name)}</option>`).join('')}</select></td>
+          <td><select class="input" data-prow="${i}" data-pf="typeId"><option value="">—</option>${st.types.map(t=>`<option value="${t.id}" ${t.id===r.typeId?'selected':''}>${esc(t.name)}</option>`).join('')}</select></td>
+          <td><select class="input" data-prow="${i}" data-pf="busId" style="${usedBus[r.busId]>1?'border-color:var(--warn)':''}"><option value="">Geen bus</option>${st.buses.map(b=>`<option value="${b.id}" ${b.id===r.busId?'selected':''}>${esc(b.name)}</option>`).join('')}</select></td>
+          <td><input class="input" data-prow="${i}" data-pf="note" value="${esc(r.note||'')}" placeholder="bijv. samen met bijrijder"></td>
+          <td><button class="btn sm ghost" data-prow-del="${i}" aria-label="Rij verwijderen">✕</button></td>
+        </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">Niemand ingepland op deze dag. Plan eerst diensten in het weekrooster, of voeg hieronder een rij toe.</div></td></tr>`}</tbody>
+      </table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm" data-plan-add ${st.employees.length?'':'disabled'}>+ Rij toevoegen</button>
+        <button class="btn sm" data-plan-sync title="Voegt medewerkers toe die wel in het weekrooster staan maar hier nog niet">Aanvullen uit weekrooster</button>
+        <span style="flex:1"></span>
+        ${plan&&plan.final ? `<button class="btn sm" data-plan-final="0">Terug naar concept</button>` : `<button class="btn ok" data-plan-final="1">Markeer definitief</button>`}
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Delen in WhatsApp</h3>
+      ${plan ? `<pre class="export">${esc(text)}</pre>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" data-copy>Kopieer tekst</button>
+        ${navigator.share?`<button class="btn" data-share>Delen…</button>`:''}
+        <button class="btn" data-dl>Download .txt</button>
+      </div>
+      <p class="small muted" style="margin:10px 0 0">Vetgedrukte regels gebruiken de WhatsApp-opmaak met sterretjes. ${plan.final?'':'Markeer de planning definitief voordat je deelt, dan zien medewerkers hem ook in hun overzicht.'}</p>`
+      : `<div class="empty-state">De export verschijnt zodra je een bus toewijst of de planning definitief maakt.</div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- Verlof (planner) ---------- */
+function renderVerlof(){
+  const all = Object.values(S.leave).sort((a,b)=>(a.from<b.from?1:-1));
+  const open = all.filter(l=>l.status==='open').sort((a,b)=>a.from<b.from?-1:1); const done = all.filter(l=>l.status!=='open');
+  const list = V.leaveTab==='open'?open:done;
+  return `<div class="topbar"><div><div class="eyebrow">Aanvragen van medewerkers</div><h2>Verlofaanvragen</h2></div>
+    <div class="toolbar"><div class="weeknav">
+      <button class="btn sm ${V.leaveTab==='open'?'primary':'ghost'}" data-ltab="open">Open (${open.length})</button>
+      <button class="btn sm ${V.leaveTab==='done'?'primary':'ghost'}" data-ltab="done">Afgehandeld (${done.length})</button>
+    </div></div></div>
+  <div class="stack">${list.length ? list.map(l=>renderLeaveCard(l,true)).join('') : `<div class="empty-state">${V.leaveTab==='open'?'Geen openstaande aanvragen.':'Nog niets afgehandeld.'}</div>`}</div>`;
+}
+function leaveDays(l){ return daysBetween(l.from,l.to).length; }
+function renderLeaveCard(l,planner){
+  const e=empById(l.empId); const conf = l.status==='open' ? conflictsFor(l) : 0;
+  return `<div class="leave-card">
+    <div>
+      <div class="row"><span class="who">${esc(e?e.name:l.empId)}</span><span class="pill ${l.status}">${l.status==='open'?'In behandeling':l.status==='goedgekeurd'?'Goedgekeurd':'Afgewezen'}</span></div>
+      <div class="period">${fmtNL(l.from)}${l.from!==l.to?` t/m ${fmtNL(l.to)}`:''} <span class="muted small" style="font-family:Inter;font-weight:500">· ${leaveDays(l)} dag${leaveDays(l)>1?'en':''}</span></div>
+      ${l.reason?`<div class="small">${esc(l.reason)}</div>`:''}
+      <div class="small muted">Aangevraagd ${l.createdAt?fmtNL(l.createdAt.slice(0,10)):''}${l.decidedAt?` · beslist ${fmtNL(l.decidedAt.slice(0,10))}`:''}</div>
+      ${conf?`<div class="conf">Let op: ${conf} geplande dienst${conf>1?'en':''} in deze periode wordt verwijderd bij goedkeuring.</div>`:''}
+    </div>
+    <div class="row" style="align-content:start">${planner ? (l.status==='open'
+      ? `<button class="btn ok sm" data-leave="${l.id}" data-decide="goedgekeurd">Goedkeuren</button><button class="btn sm" data-leave="${l.id}" data-decide="afgewezen">Afwijzen</button>`
+      : `<button class="btn sm ghost" data-leave="${l.id}" data-decide="open">Heropenen</button>`)
+      : (l.status==='open'?`<button class="btn sm ghost" data-leave-cancel="${l.id}">Intrekken</button>`:'')}</div>
+  </div>`;
+}
+
+/* ---------- Instellingen (planner) ---------- */
+function renderInstellingen(){
+  const st=settings();
+  return `<div class="topbar"><div><div class="eyebrow">Beheer</div><h2>Instellingen</h2></div></div>
+  <div class="panel"><h3>Gemiddelde behoefte per dag</h3>
+    <p class="small muted" style="margin:0 0 10px">Aantal medewerkers dat je gemiddeld nodig hebt. Het weekrooster toont de delta tussen beschikbaarheid en deze behoefte.</p>
+    <div class="needs">${WEEKDAYS.map((w,i)=>`<div class="field"><label>${w}</label><input class="input" type="number" min="0" step="1" value="${st.needs[i]}" data-need="${i}"></div>`).join('')}</div>
+  </div>
+  <div class="panel"><h3>Bussen</h3>
+    <table class="list"><thead><tr><th>Kenteken of naam</th><th></th></tr></thead><tbody>
+      ${st.buses.map((b,i)=>`<tr><td><input class="input" value="${esc(b.name)}" data-bus="${i}" data-bf="name" placeholder="bijv. VX-123-T" style="max-width:260px"></td><td><button class="btn sm ghost" data-bus-del="${i}" aria-label="Verwijderen">✕</button></td></tr>`).join('')}
+      ${st.buses.length?'':`<tr><td colspan="2" class="muted small">Nog geen bussen.</td></tr>`}
+    </tbody></table>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-bus-add>+ Bus toevoegen</button></div>
+  </div>
+  <div class="panel"><h3>Diensten en routes</h3>
+    <p class="small muted" style="margin:0 0 10px">Elke route is een keuze bij het inplannen, bijvoorbeeld een normale dienst of de afhaal-route in de avond.</p>
+    <table class="list"><thead><tr><th>Naam</th><th>Kort</th><th>Kleur</th><th></th></tr></thead><tbody>
+      ${st.types.map((t,i)=>`<tr><td><input class="input" value="${esc(t.name)}" data-type="${i}" data-tf="name"></td><td><input class="input" value="${esc(t.short)}" data-type="${i}" data-tf="short" style="max-width:130px"></td>
+        <td><div class="swatches">${COLORS.map(c=>`<button style="background:${c}" class="${t.color===c?'sel':''}" data-type="${i}" data-color="${c}" aria-label="Kleur"></button>`).join('')}</div></td>
+        <td>${V.confirm==='type:'+i?`<button class="btn sm bad" data-type-del="${i}">Zeker? Verwijder</button>`:`<button class="btn sm ghost" data-type-del="${i}" ${st.types.length<=1?'disabled':''} aria-label="Verwijderen">✕</button>`}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-type-add>+ Dienst toevoegen</button></div>
+  </div>
+  <div class="panel"><h3>Medewerkers en beschikbaarheid</h3>
+    <p class="small muted" style="margin:0 0 10px">Vink <b>Vast rooster</b> aan voor wie elke week dezelfde dagen werkt en kies die dagen. Zonder vast rooster vul je de beschikbaarheid per week in het weekrooster in. <b>Telt mee</b> bepaalt of iemand meetelt in de bezetting.</p>
+    <div style="overflow-x:auto"><table class="list"><thead><tr><th>Naam</th><th>Groep</th><th>Wie kan wat</th><th>Telefoon</th><th>Vast rooster</th><th>Beschikbare dagen</th><th>Telt mee</th><th></th></tr></thead><tbody>
+      ${st.employees.map((e,i)=>`<tr>
+        <td><input class="input" value="${esc(e.name)}" data-emp="${i}" data-ef="name" style="min-width:150px"></td>
+        <td><select class="input" data-emp="${i}" data-ef="group">${GROUPS.map(([g,l])=>`<option value="${g}" ${e.group===g?'selected':''}>${l}</option>`).join('')}</select></td>
+        <td><input class="input" value="${esc(e.skill)}" data-emp="${i}" data-ef="skill" style="max-width:120px"></td>
+        <td><input class="input" value="${esc(e.phone)}" data-emp="${i}" data-ef="phone" style="max-width:130px"></td>
+        <td style="text-align:center"><input type="checkbox" ${e.fixed?'checked':''} data-emp="${i}" data-ef="fixed" aria-label="Vast rooster"></td>
+        <td>${e.fixed?`<div class="avail">${WD_SHORT.map((w,d)=>`<label class="${e.avail[d]?'on':''}"><input type="checkbox" ${e.avail[d]?'checked':''} data-emp="${i}" data-avail="${d}">${w}</label>`).join('')}</div>`:`<span class="muted small">Per week in het weekrooster</span>`}</td>
+        <td style="text-align:center"><input type="checkbox" ${e.counts?'checked':''} data-emp="${i}" data-ef="counts" aria-label="Telt mee"></td>
+        <td>${V.confirm==='emp:'+i?`<button class="btn sm bad" data-emp-del="${i}">Zeker? Verwijder</button>`:`<button class="btn sm ghost" data-emp-del="${i}" aria-label="Verwijderen">✕</button>`}</td>
+      </tr>`).join('')}
+      ${st.employees.length?'':`<tr><td colspan="8" class="muted small">Nog geen medewerkers.</td></tr>`}
+    </tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-emp-add>+ Medewerker toevoegen</button></div>
+  </div>
+  <div class="panel"><h3>Wachtwoorden</h3>
+    <p class="small muted" style="margin:0 0 10px">Eén wachtwoord voor de planner en één gedeeld wachtwoord voor alle medewerkers.</p>
+    <div class="row">
+      <div class="field"><label for="pwp">Planner</label><input class="input" id="pwp" type="text" value="${esc(st.plannerPassword)}" data-pw="plannerPassword" style="width:200px"></div>
+      <div class="field"><label for="pwe">Medewerkers</label><input class="input" id="pwe" type="text" value="${esc(st.employeePassword)}" data-pw="employeePassword" style="width:200px"></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Medewerker: mijn rooster ---------- */
+function renderMijn(){
+  const e = empById(session.empId); if(!e) return `<div class="empty-state">Je account is niet meer gevonden. Log opnieuw in.</div>`;
+  const days = weekDays(V.myWeek); const t=todayISO();
+  const finalDays = days.filter(d=>{ const p=dayplanFor(d); return p && p.final && p.rows.some(r=>r.empId===e.id); });
+  const upcoming = Object.values(S.leave).filter(l=>l.empId===e.id && l.status==='goedgekeurd' && l.to>=t).sort((a,b)=>a.from<b.from?-1:1);
+  return `<div class="topbar"><div><div class="eyebrow">Hallo ${esc(e.name.split(' ')[0])}</div><h2>Mijn rooster</h2></div>
+    <div class="toolbar">${renderWeekNav(V.myWeek,'my')}</div></div>
+  <div class="mydays">${days.map(d=>{
+    const dd=parseISO(d); const lv=leaveOn(e.id,d); const tid=getShift(e.id,d); const ty=tid?typeById(tid):null;
+    const p=dayplanFor(d); const row=p&&p.final?p.rows.find(r=>r.empId===e.id):null; const bus=row&&busById(row.busId);
+    const av = !lv && !ty && !e.fixed && weekAvail(e.id,d);
+    return `<div class="myday ${d===t?'today':''}">
+      <div class="dn"><b>${WEEKDAYS[wdIndex(dd)]}</b><span>${fmtShort(dd)}</span></div>
+      ${lv?`<div class="what" style="color:var(--c-verlof)">Verlof</div>`: ty?`<div class="what t" style="${typeStyle(ty)}">${esc(ty.name)}</div>`: av?`<div class="what none">Beschikbaar, nog niet ingepland</div>`:`<div class="what none">Niet ingepland</div>`}
+      ${ty && !lv ? (row ? `<div class="busline">${busIcon()} ${bus?esc(bus.name):'Geen bus'}${row.note?`<span class="muted" style="font-weight:500"> · ${esc(row.note)}</span>`:''}</div>` : `<div class="busline pending">Bus volgt in de dagplanning</div>`) : ''}
+    </div>`; }).join('')}</div>
+  ${finalDays.length?`<div class="panel" style="margin-top:14px"><h3>Definitieve dagplanning</h3><div class="stack">${finalDays.map(d=>`<details><summary style="cursor:pointer;font-weight:600;text-transform:capitalize">${fmtLong(parseISO(d))}</summary><pre class="export" style="margin-top:8px">${esc(exportText(d))}</pre></details>`).join('')}</div></div>`:''}
+  ${upcoming.length?`<div class="panel" style="margin-top:14px"><h3>Goedgekeurd verlof</h3><div class="stack">${upcoming.map(l=>`<div class="row"><span class="pill goedgekeurd">Goedgekeurd</span><b>${fmtNL(l.from)}${l.from!==l.to?` t/m ${fmtNL(l.to)}`:''}</b><span class="muted small">${esc(l.reason||'')}</span></div>`).join('')}</div></div>`:''}`;
+}
+function busIcon(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11l4 4h3v6h-2"/><path d="M3 7v10h2"/><circle cx="8" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M10 17h5"/></svg>`; }
+
+/* ---------- Medewerker: verlof ---------- */
+function renderMijnVerlof(){
+  const e = empById(session.empId); const mine = Object.values(S.leave).filter(l=>l.empId===session.empId).sort((a,b)=>a.from<b.from?1:-1);
+  const t=todayISO();
+  return `<div class="topbar"><div><div class="eyebrow">${esc(e?e.name:'')}</div><h2>Mijn verlof</h2></div></div>
+  <div class="two">
+    <div class="stack">${mine.length?mine.map(l=>renderLeaveCard(l,false)).join(''):`<div class="empty-state">Je hebt nog geen verlof aangevraagd.</div>`}</div>
+    <form class="panel" id="leaveForm"><h3>Verlof aanvragen</h3>
+      <div class="stack">
+        <div class="field"><label for="lf">Van</label><input class="input" type="date" id="lf" name="from" min="${t}" value="${t}" required></div>
+        <div class="field"><label for="lt">Tot en met</label><input class="input" type="date" id="lt" name="to" min="${t}" value="${t}" required></div>
+        <div class="field"><label for="lr">Reden (optioneel)</label><textarea class="input" id="lr" name="reason" placeholder="bijv. vakantie, tandarts"></textarea></div>
+        <div class="error" id="leaveErr"></div>
+        <button class="btn primary" type="submit">Aanvraag versturen</button>
+        <p class="small muted" style="margin:0">De planner beoordeelt je aanvraag. Zodra die is goedgekeurd zie je “Verlof” in je rooster.</p>
+      </div>
+    </form>
+  </div>`;
+}
+
+/* ============================== Events ============================== */
+document.addEventListener('submit', async ev=>{
+  if(ev.target.id==='loginForm'){
+    ev.preventDefault(); const f=new FormData(ev.target); const u=f.get('user'), pw=f.get('pw'); const st=settings();
+    if(u===PLANNER_USER && pw===st.plannerPassword) session={role:'planner'};
+    else if(u!==PLANNER_USER && pw===st.employeePassword && empById(u)) session={role:'employee',empId:u};
+    else { document.getElementById('loginErr').textContent='Onjuist wachtwoord.'; return; }
+    saveSession(); V.page = session.role==='planner'?'rooster':'mijn'; render();
+  }
+  if(ev.target.id==='leaveForm'){
+    ev.preventDefault(); const f=new FormData(ev.target); const from=f.get('from'), to=f.get('to');
+    if(!from||!to||to<from){ document.getElementById('leaveErr').textContent='De einddatum ligt vóór de begindatum.'; return; }
+    const id=uid(); await writeDoc('leave',id,{id,empId:session.empId,from,to,reason:(f.get('reason')||'').trim(),status:'open',createdAt:new Date().toISOString()});
+    toast('Aanvraag verstuurd');
+  }
+});
+
+document.addEventListener('click', async ev=>{
+  const b = ev.target.closest('button,[data-cell]');
+  if(V.menu && !ev.target.closest('#menu') && !(b && b.dataset.cell)){ V.menu=null; render(); }
+  if(!b) return;
+  const ds = b.dataset;
+  if(V.confirm && !(ds.typeDel!==undefined || ds.empDel!==undefined)){ V.confirm=null; }
+  if(ds.nav){ V.page=ds.nav; V.menu=null; render(); return; }
+  if('logout' in ds){ session=null; saveSession(); render(); return; }
+  if(ds.wk){ const cur = ds.wk==='my'?V.myWeek:V.weekStart; const n = ds.delta==='0' ? iso(monday(new Date())) : iso(addDays(parseISO(cur),Number(ds.delta))); if(ds.wk==='my') V.myWeek=n; else V.weekStart=n; render(); return; }
+  if(ds.cell){ const [empId,date]=ds.cell.split('|'); const r=b.getBoundingClientRect(); V.menu={empId,date,x:r.left,y:r.bottom+4}; render(); return; }
+  if(ds.pick!==undefined){ const m=V.menu; V.menu=null; await setShift(m.empId,m.date,ds.pick||null); return; }
+  if(ds.avail!==undefined && V.menu){ const m=V.menu; V.menu=null; await setAvail(m.empId,m.date,ds.avail==='1'); return; }
+  if(ds.day!==undefined){ V.planDate = ds.day==='0' ? todayISO() : iso(addDays(parseISO(V.planDate),Number(ds.day))); render(); return; }
+  if('planAdd' in ds){ await updatePlan(p=>{ p.rows.push({empId:settings().employees[0].id,typeId:(settings().types[0]||{}).id||'',busId:'',note:''}); }); return; }
+  if('planSync' in ds){ await updatePlan(p=>{ const have=new Set(p.rows.map(r=>r.empId)); rowsFromRoster(V.planDate).forEach(r=>{ if(!have.has(r.empId)) p.rows.push(r); }); }); toast('Aangevuld'); return; }
+  if(ds.prowDel!==undefined){ await updatePlan(p=>{ p.rows.splice(Number(ds.prowDel),1); }); return; }
+  if(ds.planFinal!==undefined){ await updatePlan(p=>{ p.final = ds.planFinal==='1'; }); toast(ds.planFinal==='1'?'Dagplanning is definitief':'Terug naar concept'); return; }
+  if('copy' in ds){ copyText(exportText(V.planDate)); return; }
+  if('share' in ds){ shareText(exportText(V.planDate),'Dagplanning '+fmtNL(V.planDate)); return; }
+  if('dl' in ds){ downloadText(exportText(V.planDate),`dagplanning-${V.planDate}.txt`); return; }
+  if(ds.ltab){ V.leaveTab=ds.ltab; render(); return; }
+  if(ds.leave && ds.decide){ if(ds.decide==='open'){ const l=clone(S.leave[ds.leave]); l.status='open'; delete l.decidedAt; await writeDoc('leave',ds.leave,l); } else await decideLeave(ds.leave,ds.decide); return; }
+  if(ds.leaveCancel){ await deleteDoc('leave',ds.leaveCancel); toast('Aanvraag ingetrokken'); return; }
+  // instellingen
+  const st = clone(settings());
+  if('busAdd' in ds){ st.buses.push({id:'b'+uid(),name:''}); await writeDoc('settings','main',st); return; }
+  if(ds.busDel!==undefined){ st.buses.splice(Number(ds.busDel),1); await writeDoc('settings','main',st); return; }
+  if('typeAdd' in ds){ st.types.push({id:'t'+uid(),name:'Nieuwe route',short:'Route',color:COLORS[st.types.length%COLORS.length]}); await writeDoc('settings','main',st); return; }
+  if(ds.typeDel!==undefined){ const key='type:'+ds.typeDel; if(V.confirm!==key){ V.confirm=key; render(); return; } V.confirm=null; st.types.splice(Number(ds.typeDel),1); await writeDoc('settings','main',st); return; }
+  if(ds.type!==undefined && ds.color){ st.types[Number(ds.type)].color=ds.color; await writeDoc('settings','main',st); return; }
+  if('empAdd' in ds){ st.employees.push(newEmp('Nieuwe medewerker','chauffeur')); await writeDoc('settings','main',st); return; }
+  if(ds.empDel!==undefined){ const key='emp:'+ds.empDel; if(V.confirm!==key){ V.confirm=key; render(); return; } V.confirm=null; st.employees.splice(Number(ds.empDel),1); await writeDoc('settings','main',st); return; }
+});
+
+document.addEventListener('change', async ev=>{
+  const el = ev.target; const ds = el.dataset;
+  if(ds.wkdate){ const d=parseISO(el.value); if(isNaN(d)) return; const n=iso(monday(d)); if(ds.wkdate==='my') V.myWeek=n; else V.weekStart=n; render(); return; }
+  if(el.id==='planDate'){ const d=parseISO(el.value); if(!isNaN(d)){ V.planDate=el.value; render(); } return; }
+  if(ds.prow!==undefined){ await updatePlan(p=>{ p.rows[Number(ds.prow)][ds.pf]=el.value; }); return; }
+  const st = clone(settings());
+  if(ds.need!==undefined){ st.needs[Number(ds.need)] = Math.max(0,Number(el.value)||0); await writeDoc('settings','main',st); return; }
+  if(ds.bus!==undefined){ st.buses[Number(ds.bus)][ds.bf]=el.value.trim(); await writeDoc('settings','main',st); return; }
+  if(ds.type!==undefined && ds.tf){ st.types[Number(ds.type)][ds.tf]=el.value.trim(); await writeDoc('settings','main',st); return; }
+  if(ds.pw){ const v=el.value.trim(); if(!v){ toast('Wachtwoord mag niet leeg zijn'); render(); return; } st[ds.pw]=v; await writeDoc('settings','main',st); toast('Wachtwoord opgeslagen'); return; }
+  if(ds.emp!==undefined){
+    const e = st.employees[Number(ds.emp)];
+    if(ds.avail!==undefined) e.avail[Number(ds.avail)] = el.checked?1:0;
+    else if(ds.ef==='counts' || ds.ef==='fixed') e[ds.ef] = el.checked;
+    else e[ds.ef] = el.value.trim();
+    await writeDoc('settings','main',st); return;
+  }
+});
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && V.menu){ V.menu=null; render(); } });
+
+connect();
+</script>
+
+</body>
+</html>
