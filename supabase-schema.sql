@@ -22,3 +22,28 @@ do $$ begin
     alter publication supabase_realtime add table public.docs;
   end if;
 end $$;
+
+-- Geschiedenis van elke wijziging (audit): niets gaat verloren bij overschrijven of verwijderen.
+create table if not exists public.docs_history (
+  hid         bigserial primary key,
+  coll        text not null,
+  id          text not null,
+  action      text not null,
+  data        jsonb,
+  changed_at  timestamptz not null default now()
+);
+create index if not exists docs_history_coll_id_idx on public.docs_history (coll, id, changed_at desc);
+alter table public.docs_history enable row level security;
+create or replace function public.docs_audit() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE' then
+    insert into public.docs_history (coll,id,action,data) values (old.coll, old.id, 'delete', old.data); return old;
+  elsif tg_op = 'UPDATE' then
+    insert into public.docs_history (coll,id,action,data) values (old.coll, old.id, 'update', old.data); return new;
+  else
+    insert into public.docs_history (coll,id,action,data) values (new.coll, new.id, 'insert', new.data); return new;
+  end if;
+end $$;
+drop trigger if exists docs_audit_trg on public.docs;
+create trigger docs_audit_trg after insert or update or delete on public.docs for each row execute function public.docs_audit();

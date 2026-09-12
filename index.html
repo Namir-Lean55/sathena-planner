@@ -296,10 +296,16 @@ function normalizeSettings(s){
   s.buses = (s.buses||[]).map(b=>({id:b.id, name:(b.plate&&b.plate.trim()) || b.name || ''}));
   s.employees = (s.employees||[]).map(e=>({fixed:true,avail:[1,1,1,1,1,0,0],counts:true,skill:'',phone:'',...e}));
   s.types = s.types||[]; s.needs = s.needs||[0,0,0,0,0,0,0];
-  if(!s.plannerPassword) s.plannerPassword = DEFAULT_PLANNER_PASSWORD;
+  if(!s.plannerPwHash && !s.plannerPassword) s.plannerPassword = DEFAULT_PLANNER_PASSWORD;
   if(!s.employeePassword) s.employeePassword = DEFAULT_EMPLOYEE_PASSWORD;
   if(!s.company) s.company='Sathena';
   return s;
+}
+/* Wachtwoorden worden als SHA-256-hash opgeslagen, nooit als tekst. */
+async function hashPw(scope,pw){
+  const buf = new TextEncoder().encode('sathena|'+scope+'|'+pw);
+  const h = await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 const settings = () => S.settings || DEFAULT_SETTINGS;
 const empById = id => settings().employees.find(e=>e.id===id);
@@ -412,7 +418,15 @@ function rowsFromRoster(dateISO){
   const order = settings().employees.map(e=>e.id);
   return plannedOn(dateISO).sort((a,b)=>order.indexOf(a[0])-order.indexOf(b[0])).map(([empId,typeId])=>({empId,typeId,busId:'',note:''}));
 }
-async function savePlan(dateISO,plan){ plan.date=dateISO; plan.updatedAt=new Date().toISOString(); await writeDoc('dayplans',dateISO,plan); }
+/* Elke opgeslagen dagplanning bewaart de namen zelf, zodat het archief klopt
+   ook als een medewerker later wordt verwijderd of hernoemd. */
+async function savePlan(dateISO,plan){
+  plan.date=dateISO; plan.updatedAt=new Date().toISOString();
+  plan.rows.forEach(r=>{ if(r.empId){ const e=empById(r.empId); if(e) r.name=e.name; } const b=busById(r.busId); if(b) r.busName=b.name; else if(!r.busId) delete r.busName; });
+  await writeDoc('dayplans',dateISO,plan);
+}
+function rowName(r){ if(r.adhoc) return r.name||'(naam ontbreekt)'; const e=empById(r.empId); return e?e.name:(r.name||'?'); }
+function rowBus(r){ const b=busById(r.busId); return b?b.name:(r.busId&&r.busName?r.busName:''); }
 async function updatePlan(mut){
   const p = clone(dayplanFor(V.planDate) || {date:V.planDate,final:false,rows:rowsFromRoster(V.planDate)});
   mut(p); await savePlan(V.planDate,p);
@@ -427,10 +441,10 @@ function exportText(dateISO){
     const rs = rows.filter(r=>(r.typeId||'')===tid); if(!rs.length) continue;
     lines.push(`*${tid ? (typeById(tid)||{}).name || tid : 'Overig'}*`);
     for(const r of rs){
-      const e=empById(r.empId); const b=busById(r.busId);
-      let line = `${b ? b.name : 'Geen bus'} · ${e?e.name:'?'}`;
+      const bus=rowBus(r);
+      let line = `${bus || 'Geen bus'} · ${rowName(r)}`;
       if(r.note) line += ` — ${r.note}`;
-      lines.push(line); total++; if(b) buses.add(b.id);
+      lines.push(line); total++; if(bus) buses.add(bus);
     }
     lines.push('');
   }
@@ -455,8 +469,8 @@ function render(){
   if(!session){ app.innerHTML = renderLogin(); return; }
   const isPlanner = session.role==='planner';
   const pages = isPlanner
-    ? [['rooster','Weekrooster'],['dagplanning','Dagplanning'],['verlof','Verlofaanvragen'],['instellingen','Instellingen']]
-    : [['mijn','Mijn rooster'],['mijnverlof','Mijn verlof']];
+    ? [['rooster','Weekrooster'],['dagplanning','Dagplanning'],['verlof','Verlofaanvragen'],['instellingen','Instellingen'],['wachtwoord','Mijn wachtwoord']]
+    : [['mijn','Mijn rooster'],['mijnverlof','Mijn verlof'],['wachtwoord','Mijn wachtwoord']];
   if(!pages.some(p=>p[0]===V.page)) V.page = pages[0][0];
   const open = openLeaveCount();
   app.innerHTML = `
@@ -474,6 +488,7 @@ function render(){
       V.page==='dagplanning' ? renderDagplanning() :
       V.page==='verlof' ? renderVerlof() :
       V.page==='instellingen' ? renderInstellingen() :
+      V.page==='wachtwoord' ? renderWachtwoord() :
       V.page==='mijn' ? renderMijn() :
       renderMijnVerlof()
     }</main>
@@ -482,20 +497,62 @@ function render(){
 }
 
 function renderLogin(){
-  const st=settings(); const emps = st.employees; const defaults = st.plannerPassword===DEFAULT_PLANNER_PASSWORD && st.employeePassword===DEFAULT_EMPLOYEE_PASSWORD;
-  return `<div class="login-wrap"><form class="login" id="loginForm">
-    <div class="login-head"><img class="logo" src="${LOGO}" alt="Sathena"><div class="sub">Planner · rooster, verlof en dagplanning</div></div>
+  const st=settings(); const emps = st.employees;
+  const head = `<div class="login-head"><img class="logo" src="${LOGO}" alt="Sathena"><div class="sub">Planner · rooster, verlof en dagplanning</div></div>`;
+  if(V.login && V.login.stage==='setpw'){
+    const e = empById(V.login.empId);
+    return `<div class="login-wrap"><form class="login" id="setPwForm">${head}
+      <div class="login-body">
+        <div><h3>Welkom ${esc(e?e.name.split(' ')[0]:'')}</h3><p class="small muted" style="margin:4px 0 0">Kies een eigen wachtwoord. Hiermee log je voortaan in.</p></div>
+        <div class="field"><label for="np1">Nieuw wachtwoord</label><input class="input" id="np1" name="pw1" type="password" autocomplete="new-password" minlength="6" required></div>
+        <div class="field"><label for="np2">Herhaal wachtwoord</label><input class="input" id="np2" name="pw2" type="password" autocomplete="new-password" minlength="6" required></div>
+        <div class="error" id="setPwErr"></div>
+        <button class="btn primary" type="submit">Wachtwoord opslaan en inloggen</button>
+        <button class="btn ghost" type="button" data-login-back>Terug</button>
+      </div></form></div>`;
+  }
+  const sel = V.loginUser || PLANNER_USER; const selEmp = sel!==PLANNER_USER ? empById(sel) : null;
+  const firstTime = selEmp && !selEmp.pwHash;
+  const plannerLegacy = sel===PLANNER_USER && !st.plannerPwHash;
+  return `<div class="login-wrap"><form class="login" id="loginForm">${head}
     <div class="login-body">
       <div class="field"><label for="lu">Wie ben je?</label>
         <select class="input" id="lu" name="user" ${loaded?'':'disabled'}>
-          ${loaded ? `<option value="${PLANNER_USER}">Planner</option>
-          ${GROUPS.map(([g,label])=>{ const es=emps.filter(e=>e.group===g); return es.length?`<optgroup label="${label}">${es.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</optgroup>`:''; }).join('')}` : `<option>Laden…</option>`}
+          ${loaded ? `<option value="${PLANNER_USER}" ${sel===PLANNER_USER?'selected':''}>Planner</option>
+          ${GROUPS.map(([g,label])=>{ const es=emps.filter(e=>e.group===g); return es.length?`<optgroup label="${label}">${es.map(e=>`<option value="${e.id}" ${sel===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</optgroup>`:''; }).join('')}` : `<option>Laden…</option>`}
         </select></div>
-      <div class="field"><label for="lp">Wachtwoord</label><input class="input" id="lp" name="pw" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="lp">${firstTime?'Startwachtwoord':'Wachtwoord'}</label><input class="input" id="lp" name="pw" type="password" autocomplete="current-password" required></div>
+      ${firstTime?`<div class="hint">Eerste keer inloggen: gebruik het startwachtwoord dat je van de planner hebt gekregen. Daarna kies je een eigen wachtwoord.</div>`:''}
+      ${plannerLegacy?`<div class="hint">Eerste keer: log in met <code>${DEFAULT_PLANNER_PASSWORD}</code> en wijzig het daarna via “Mijn wachtwoord”.</div>`:''}
       <div class="error" id="loginErr"></div>
       <button class="btn primary" type="submit" ${loaded?'':'disabled'}>Inloggen</button>
-      ${defaults ? `<div class="hint">Standaardwachtwoorden: planner <code>${DEFAULT_PLANNER_PASSWORD}</code>, medewerkers <code>${DEFAULT_EMPLOYEE_PASSWORD}</code>. Aan te passen bij Instellingen.</div>` : `<div class="small muted" style="text-align:center">Wachtwoord vergeten? Vraag het aan de planner.</div>`}
+      ${firstTime||plannerLegacy?'':`<div class="small muted" style="text-align:center">Wachtwoord vergeten? De planner kan het resetten.</div>`}
     </div></form></div>`;
+}
+
+/* ---------- Wachtwoord wijzigen (beide rollen) ---------- */
+function renderWachtwoord(){
+  const isPlanner = session.role==='planner';
+  return `<div class="topbar"><div><div class="eyebrow">${isPlanner?'Planner':esc((empById(session.empId)||{}).name||'')}</div><h2>Mijn wachtwoord</h2></div></div>
+  <form class="panel" id="changePwForm" style="max-width:460px">
+    <div class="stack">
+      <div class="field"><label for="cp0">Huidig wachtwoord</label><input class="input" id="cp0" name="old" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="cp1">Nieuw wachtwoord</label><input class="input" id="cp1" name="pw1" type="password" autocomplete="new-password" minlength="6" required></div>
+      <div class="field"><label for="cp2">Herhaal nieuw wachtwoord</label><input class="input" id="cp2" name="pw2" type="password" autocomplete="new-password" minlength="6" required></div>
+      <div class="error" id="changePwErr"></div>
+      <div><button class="btn primary" type="submit">Wachtwoord wijzigen</button></div>
+      <p class="small muted" style="margin:0">Minimaal 6 tekens. Wachtwoorden worden versleuteld opgeslagen.</p>
+    </div>
+  </form>`;
+}
+async function checkPassword(who,pw){
+  const st=settings();
+  if(who===PLANNER_USER){
+    if(st.plannerPwHash) return (await hashPw('planner',pw))===st.plannerPwHash;
+    return pw===st.plannerPassword;
+  }
+  const e=empById(who); if(!e || !e.pwHash) return false;
+  return (await hashPw(e.id,pw))===e.pwHash;
 }
 
 /* ---------- Weekrooster (planner) ---------- */
@@ -580,10 +637,12 @@ function renderMenu(){
 function renderDagplanning(){
   const d = V.planDate; const dd=parseISO(d); const plan = dayplanFor(d); const st=settings();
   const rows = plan ? plan.rows : rowsFromRoster(d);
-  const notPlanned = rows.filter(r=>!getShift(r.empId,d)).length;
+  const notPlanned = rows.filter(r=>!r.adhoc && !getShift(r.empId,d)).length;
+  const adhocCount = rows.filter(r=>r.adhoc).length;
   const usedBus = {}; rows.forEach(r=>{ if(r.busId) usedBus[r.busId]=(usedBus[r.busId]||0)+1; });
   const dup = Object.values(usedBus).some(n=>n>1);
   const text = plan ? exportText(d) : null;
+  const archive = Object.values(S.dayplans).sort((a,b)=>a.date<b.date?1:-1);
   return `<div class="topbar"><div><div class="eyebrow">Definitief per dag</div><h2>Dagplanning</h2></div>
     <div class="toolbar"><div class="weeknav">
       <button class="btn icon ghost" data-day="-1" aria-label="Vorige dag">‹</button>
@@ -600,10 +659,13 @@ function renderDagplanning(){
       </div>
       ${dup?`<div class="hint" style="color:var(--warn);margin-bottom:10px">Let op: een bus is meer dan één keer toegewezen.</div>`:''}
       ${notPlanned?`<div class="hint" style="margin-bottom:10px">${notPlanned} medewerker(s) in deze dagplanning staan niet in het weekrooster voor deze dag.</div>`:''}
+      ${adhocCount?`<div class="small muted" style="margin-bottom:8px">${adhocCount} ad-hoc rij${adhocCount>1?'en':''} (meerijders of tijdelijke krachten, niet in het weekrooster).</div>`:''}
       <div style="overflow-x:auto"><table class="list">
         <thead><tr><th>Medewerker</th><th>Dienst</th><th>Bus</th><th>Opmerking</th><th></th></tr></thead>
         <tbody>${rows.length? rows.map((r,i)=>`<tr>
-          <td><select class="input" data-prow="${i}" data-pf="empId">${st.employees.map(e=>`<option value="${e.id}" ${e.id===r.empId?'selected':''}>${esc(e.name)}</option>`).join('')}</select></td>
+          <td>${r.adhoc
+            ? `<div class="row" style="flex-wrap:nowrap"><span class="tag" title="Ad hoc: staat niet in het weekrooster">AD HOC</span><input class="input" data-prow="${i}" data-pf="name" value="${esc(r.name||'')}" placeholder="Naam, bijv. Jan (meerijder)" style="min-width:170px"></div>`
+            : `<select class="input" data-prow="${i}" data-pf="empId">${st.employees.map(e=>`<option value="${e.id}" ${e.id===r.empId?'selected':''}>${esc(e.name)}</option>`).join('')}${r.empId&&!empById(r.empId)?`<option value="${esc(r.empId)}" selected>${esc(r.name||r.empId)} (verwijderd)</option>`:''}<option value="__adhoc">Ad hoc / extern…</option></select>`}</td>
           <td><select class="input" data-prow="${i}" data-pf="typeId"><option value="">—</option>${st.types.map(t=>`<option value="${t.id}" ${t.id===r.typeId?'selected':''}>${esc(t.name)}</option>`).join('')}</select></td>
           <td><select class="input" data-prow="${i}" data-pf="busId" style="${usedBus[r.busId]>1?'border-color:var(--warn)':''}"><option value="">Geen bus</option>${st.buses.map(b=>`<option value="${b.id}" ${b.id===r.busId?'selected':''}>${esc(b.name)}</option>`).join('')}</select></td>
           <td><input class="input" data-prow="${i}" data-pf="note" value="${esc(r.note||'')}" placeholder="bijv. samen met bijrijder"></td>
@@ -611,7 +673,8 @@ function renderDagplanning(){
         </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">Niemand ingepland op deze dag. Plan eerst diensten in het weekrooster, of voeg hieronder een rij toe.</div></td></tr>`}</tbody>
       </table></div>
       <div class="row" style="margin-top:12px">
-        <button class="btn sm" data-plan-add ${st.employees.length?'':'disabled'}>+ Rij toevoegen</button>
+        <button class="btn sm" data-plan-add ${st.employees.length?'':'disabled'}>+ Medewerker</button>
+        <button class="btn sm" data-plan-adhoc>+ Ad hoc / extern</button>
         <button class="btn sm" data-plan-sync title="Voegt medewerkers toe die wel in het weekrooster staan maar hier nog niet">Aanvullen uit weekrooster</button>
         <span style="flex:1"></span>
         ${plan&&plan.final ? `<button class="btn sm" data-plan-final="0">Terug naar concept</button>` : `<button class="btn ok" data-plan-final="1">Markeer definitief</button>`}
@@ -628,6 +691,20 @@ function renderDagplanning(){
       <p class="small muted" style="margin:10px 0 0">Vetgedrukte regels gebruiken de WhatsApp-opmaak met sterretjes. ${plan.final?'':'Markeer de planning definitief voordat je deelt, dan zien medewerkers hem ook in hun overzicht.'}</p>`
       : `<div class="empty-state">De export verschijnt zodra je een bus toewijst of de planning definitief maakt.</div>`}
     </div>
+  </div>
+  <div class="panel" style="margin-top:14px"><h3>Archief <span class="muted small" style="font-family:Inter;font-weight:500">${archive.length} opgeslagen dagplanning${archive.length===1?'':'en'}</span></h3>
+    ${archive.length ? `<div style="overflow-x:auto"><table class="list">
+      <thead><tr><th>Dag</th><th>Status</th><th>Medewerkers</th><th>Bussen</th><th>Laatst gewijzigd</th><th></th></tr></thead>
+      <tbody>${archive.slice(0,60).map(p=>{ const pd=parseISO(p.date); const buses=new Set(p.rows.filter(r=>r.busId).map(r=>r.busId)); return `<tr ${p.date===d?'style="background:var(--accent-soft)"':''}>
+        <td style="text-transform:capitalize;font-weight:600">${fmtLong(pd)}</td>
+        <td><span class="pill ${p.final?'final':'concept'}">${p.final?'Definitief':'Concept'}</span></td>
+        <td>${p.rows.length}${p.rows.some(r=>r.adhoc)?` <span class="muted small">(${p.rows.filter(r=>r.adhoc).length} ad hoc)</span>`:''}</td>
+        <td>${buses.size}</td>
+        <td class="muted small">${p.updatedAt?fmtNL(p.updatedAt.slice(0,10)):''}</td>
+        <td><button class="btn sm ghost" data-plan-open="${p.date}">Openen</button></td>
+      </tr>`; }).join('')}</tbody></table></div>
+      ${archive.length>60?`<p class="small muted" style="margin:8px 0 0">Alleen de laatste 60 worden getoond. Kies een datum bovenaan om een oudere dag te openen.</p>`:''}`
+    : `<div class="empty-state">Nog geen dagplanningen opgeslagen. Een dagplanning wordt bewaard zodra je een bus toewijst, een rij toevoegt of hem definitief maakt.</div>`}
   </div>`;
 }
 
@@ -687,7 +764,7 @@ function renderInstellingen(){
   </div>
   <div class="panel"><h3>Medewerkers en beschikbaarheid</h3>
     <p class="small muted" style="margin:0 0 10px">Vink <b>Vast rooster</b> aan voor wie elke week dezelfde dagen werkt en kies die dagen. Zonder vast rooster vul je de beschikbaarheid per week in het weekrooster in. <b>Telt mee</b> bepaalt of iemand meetelt in de bezetting.</p>
-    <div style="overflow-x:auto"><table class="list"><thead><tr><th>Naam</th><th>Groep</th><th>Wie kan wat</th><th>Telefoon</th><th>Vast rooster</th><th>Beschikbare dagen</th><th>Telt mee</th><th></th></tr></thead><tbody>
+    <div style="overflow-x:auto"><table class="list"><thead><tr><th>Naam</th><th>Groep</th><th>Wie kan wat</th><th>Telefoon</th><th>Vast rooster</th><th>Beschikbare dagen</th><th>Telt mee</th><th>Wachtwoord</th><th></th></tr></thead><tbody>
       ${st.employees.map((e,i)=>`<tr>
         <td><input class="input" value="${esc(e.name)}" data-emp="${i}" data-ef="name" style="min-width:150px"></td>
         <td><select class="input" data-emp="${i}" data-ef="group">${GROUPS.map(([g,l])=>`<option value="${g}" ${e.group===g?'selected':''}>${l}</option>`).join('')}</select></td>
@@ -696,17 +773,18 @@ function renderInstellingen(){
         <td style="text-align:center"><input type="checkbox" ${e.fixed?'checked':''} data-emp="${i}" data-ef="fixed" aria-label="Vast rooster"></td>
         <td>${e.fixed?`<div class="avail">${WD_SHORT.map((w,d)=>`<label class="${e.avail[d]?'on':''}"><input type="checkbox" ${e.avail[d]?'checked':''} data-emp="${i}" data-avail="${d}">${w}</label>`).join('')}</div>`:`<span class="muted small">Per week in het weekrooster</span>`}</td>
         <td style="text-align:center"><input type="checkbox" ${e.counts?'checked':''} data-emp="${i}" data-ef="counts" aria-label="Telt mee"></td>
+        <td>${e.pwHash?`<button class="btn sm ghost" data-emp-pwreset="${i}" title="Wist het wachtwoord; de medewerker logt daarna in met het startwachtwoord">Reset</button>`:`<span class="muted small">Nog niet ingesteld</span>`}</td>
         <td>${V.confirm==='emp:'+i?`<button class="btn sm bad" data-emp-del="${i}">Zeker? Verwijder</button>`:`<button class="btn sm ghost" data-emp-del="${i}" aria-label="Verwijderen">✕</button>`}</td>
       </tr>`).join('')}
-      ${st.employees.length?'':`<tr><td colspan="8" class="muted small">Nog geen medewerkers.</td></tr>`}
+      ${st.employees.length?'':`<tr><td colspan="9" class="muted small">Nog geen medewerkers.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:10px"><button class="btn sm" data-emp-add>+ Medewerker toevoegen</button></div>
   </div>
   <div class="panel"><h3>Wachtwoorden</h3>
-    <p class="small muted" style="margin:0 0 10px">Eén wachtwoord voor de planner en één gedeeld wachtwoord voor alle medewerkers.</p>
+    <p class="small muted" style="margin:0 0 10px">Nieuwe medewerkers loggen de eerste keer in met het startwachtwoord en kiezen daarna een eigen wachtwoord. Je eigen wachtwoord wijzig je via “Mijn wachtwoord”.</p>
     <div class="row">
-      <div class="field"><label for="pwp">Planner</label><input class="input" id="pwp" type="text" value="${esc(st.plannerPassword)}" data-pw="plannerPassword" style="width:200px"></div>
-      <div class="field"><label for="pwe">Medewerkers</label><input class="input" id="pwe" type="text" value="${esc(st.employeePassword)}" data-pw="employeePassword" style="width:200px"></div>
+      <div class="field"><label for="pwe">Startwachtwoord medewerkers</label><input class="input" id="pwe" type="text" value="${esc(st.employeePassword)}" data-pw="employeePassword" style="width:220px"></div>
+      <div class="small muted" style="align-self:end;padding-bottom:9px">${st.plannerPwHash?'Planner-wachtwoord is ingesteld.':`Planner gebruikt nog het standaardwachtwoord <code>${DEFAULT_PLANNER_PASSWORD}</code>.`}</div>
     </div>
   </div>`;
 }
@@ -726,7 +804,7 @@ function renderMijn(){
     return `<div class="myday ${d===t?'today':''}">
       <div class="dn"><b>${WEEKDAYS[wdIndex(dd)]}</b><span>${fmtShort(dd)}</span></div>
       ${lv?`<div class="what" style="color:var(--c-verlof)">Verlof</div>`: ty?`<div class="what t" style="${typeStyle(ty)}">${esc(ty.name)}</div>`: av?`<div class="what none">Beschikbaar, nog niet ingepland</div>`:`<div class="what none">Niet ingepland</div>`}
-      ${ty && !lv ? (row ? `<div class="busline">${busIcon()} ${bus?esc(bus.name):'Geen bus'}${row.note?`<span class="muted" style="font-weight:500"> · ${esc(row.note)}</span>`:''}</div>` : `<div class="busline pending">Bus volgt in de dagplanning</div>`) : ''}
+      ${ty && !lv ? (row ? `<div class="busline">${busIcon()} ${rowBus(row)?esc(rowBus(row)):'Geen bus'}${row.note?`<span class="muted" style="font-weight:500"> · ${esc(row.note)}</span>`:''}</div>` : `<div class="busline pending">Bus volgt in de dagplanning</div>`) : ''}
     </div>`; }).join('')}</div>
   ${finalDays.length?`<div class="panel" style="margin-top:14px"><h3>Definitieve dagplanning</h3><div class="stack">${finalDays.map(d=>`<details><summary style="cursor:pointer;font-weight:600;text-transform:capitalize">${fmtLong(parseISO(d))}</summary><pre class="export" style="margin-top:8px">${esc(exportText(d))}</pre></details>`).join('')}</div></div>`:''}
   ${upcoming.length?`<div class="panel" style="margin-top:14px"><h3>Goedgekeurd verlof</h3><div class="stack">${upcoming.map(l=>`<div class="row"><span class="pill goedgekeurd">Goedgekeurd</span><b>${fmtNL(l.from)}${l.from!==l.to?` t/m ${fmtNL(l.to)}`:''}</b><span class="muted small">${esc(l.reason||'')}</span></div>`).join('')}</div></div>`:''}`;
@@ -757,10 +835,39 @@ function renderMijnVerlof(){
 document.addEventListener('submit', async ev=>{
   if(ev.target.id==='loginForm'){
     ev.preventDefault(); const f=new FormData(ev.target); const u=f.get('user'), pw=f.get('pw'); const st=settings();
-    if(u===PLANNER_USER && pw===st.plannerPassword) session={role:'planner'};
-    else if(u!==PLANNER_USER && pw===st.employeePassword && empById(u)) session={role:'employee',empId:u};
-    else { document.getElementById('loginErr').textContent='Onjuist wachtwoord.'; return; }
-    saveSession(); V.page = session.role==='planner'?'rooster':'mijn'; render();
+    const err = m => { document.getElementById('loginErr').textContent=m; };
+    if(u===PLANNER_USER){
+      if(!(await checkPassword(PLANNER_USER,pw))) return err('Onjuist wachtwoord.');
+      session={role:'planner'};
+    } else {
+      const e=empById(u); if(!e) return err('Medewerker niet gevonden.');
+      if(!e.pwHash){
+        if(pw!==st.employeePassword) return err('Onjuist startwachtwoord. Vraag het aan de planner.');
+        V.login={stage:'setpw',empId:u}; render(); return;
+      }
+      if(!(await checkPassword(u,pw))) return err('Onjuist wachtwoord.');
+      session={role:'employee',empId:u};
+    }
+    V.login=null; saveSession(); V.page = session.role==='planner'?'rooster':'mijn'; render();
+  }
+  if(ev.target.id==='setPwForm'){
+    ev.preventDefault(); const f=new FormData(ev.target); const p1=f.get('pw1'), p2=f.get('pw2');
+    const err = m => { document.getElementById('setPwErr').textContent=m; };
+    if(p1.length<6) return err('Minimaal 6 tekens.'); if(p1!==p2) return err('De wachtwoorden zijn niet gelijk.');
+    const st=clone(settings()); const e=st.employees.find(x=>x.id===V.login.empId); if(!e) return err('Medewerker niet gevonden.');
+    e.pwHash = await hashPw(e.id,p1); await writeDoc('settings','main',st);
+    session={role:'employee',empId:e.id}; V.login=null; saveSession(); V.page='mijn'; render(); toast('Wachtwoord ingesteld');
+  }
+  if(ev.target.id==='changePwForm'){
+    ev.preventDefault(); const f=new FormData(ev.target); const old=f.get('old'), p1=f.get('pw1'), p2=f.get('pw2');
+    const err = m => { document.getElementById('changePwErr').textContent=m; };
+    const who = session.role==='planner' ? PLANNER_USER : session.empId;
+    if(!(await checkPassword(who,old))) return err('Het huidige wachtwoord klopt niet.');
+    if(p1.length<6) return err('Minimaal 6 tekens.'); if(p1!==p2) return err('De nieuwe wachtwoorden zijn niet gelijk.');
+    const st=clone(settings());
+    if(who===PLANNER_USER){ st.plannerPwHash = await hashPw('planner',p1); delete st.plannerPassword; }
+    else { const e=st.employees.find(x=>x.id===who); if(!e) return err('Medewerker niet gevonden.'); e.pwHash = await hashPw(e.id,p1); }
+    await writeDoc('settings','main',st); ev.target.reset(); toast('Wachtwoord gewijzigd');
   }
   if(ev.target.id==='leaveForm'){
     ev.preventDefault(); const f=new FormData(ev.target); const from=f.get('from'), to=f.get('to');
@@ -784,6 +891,8 @@ document.addEventListener('click', async ev=>{
   if(ds.avail!==undefined && V.menu){ const m=V.menu; V.menu=null; await setAvail(m.empId,m.date,ds.avail==='1'); return; }
   if(ds.day!==undefined){ V.planDate = ds.day==='0' ? todayISO() : iso(addDays(parseISO(V.planDate),Number(ds.day))); render(); return; }
   if('planAdd' in ds){ await updatePlan(p=>{ p.rows.push({empId:settings().employees[0].id,typeId:(settings().types[0]||{}).id||'',busId:'',note:''}); }); return; }
+  if('planAdhoc' in ds){ await updatePlan(p=>{ p.rows.push({adhoc:true,empId:'',name:'',typeId:(settings().types[0]||{}).id||'',busId:'',note:''}); }); return; }
+  if(ds.planOpen){ V.planDate=ds.planOpen; render(); window.scrollTo({top:0}); return; }
   if('planSync' in ds){ await updatePlan(p=>{ const have=new Set(p.rows.map(r=>r.empId)); rowsFromRoster(V.planDate).forEach(r=>{ if(!have.has(r.empId)) p.rows.push(r); }); }); toast('Aangevuld'); return; }
   if(ds.prowDel!==undefined){ await updatePlan(p=>{ p.rows.splice(Number(ds.prowDel),1); }); return; }
   if(ds.planFinal!==undefined){ await updatePlan(p=>{ p.final = ds.planFinal==='1'; }); toast(ds.planFinal==='1'?'Dagplanning is definitief':'Terug naar concept'); return; }
@@ -801,14 +910,20 @@ document.addEventListener('click', async ev=>{
   if(ds.typeDel!==undefined){ const key='type:'+ds.typeDel; if(V.confirm!==key){ V.confirm=key; render(); return; } V.confirm=null; st.types.splice(Number(ds.typeDel),1); await writeDoc('settings','main',st); return; }
   if(ds.type!==undefined && ds.color){ st.types[Number(ds.type)].color=ds.color; await writeDoc('settings','main',st); return; }
   if('empAdd' in ds){ st.employees.push(newEmp('Nieuwe medewerker','chauffeur')); await writeDoc('settings','main',st); return; }
+  if(ds.empPwreset!==undefined){ const e=st.employees[Number(ds.empPwreset)]; delete e.pwHash; await writeDoc('settings','main',st); toast(`${e.name} logt de volgende keer in met het startwachtwoord`); return; }
+  if('loginBack' in ds){ V.login=null; render(); return; }
   if(ds.empDel!==undefined){ const key='emp:'+ds.empDel; if(V.confirm!==key){ V.confirm=key; render(); return; } V.confirm=null; st.employees.splice(Number(ds.empDel),1); await writeDoc('settings','main',st); return; }
 });
 
 document.addEventListener('change', async ev=>{
   const el = ev.target; const ds = el.dataset;
+  if(el.id==='lu'){ V.loginUser=el.value; render(); const s=document.getElementById('lp'); if(s) s.focus(); return; }
   if(ds.wkdate){ const d=parseISO(el.value); if(isNaN(d)) return; const n=iso(monday(d)); if(ds.wkdate==='my') V.myWeek=n; else V.weekStart=n; render(); return; }
   if(el.id==='planDate'){ const d=parseISO(el.value); if(!isNaN(d)){ V.planDate=el.value; render(); } return; }
-  if(ds.prow!==undefined){ await updatePlan(p=>{ p.rows[Number(ds.prow)][ds.pf]=el.value; }); return; }
+  if(ds.prow!==undefined){ await updatePlan(p=>{ const r=p.rows[Number(ds.prow)];
+    if(ds.pf==='empId' && el.value==='__adhoc'){ r.adhoc=true; r.empId=''; r.name=''; }
+    else if(ds.pf==='empId'){ r.adhoc=false; r.empId=el.value; }
+    else r[ds.pf]=ds.pf==='name'?el.value.trim():el.value; }); return; }
   const st = clone(settings());
   if(ds.need!==undefined){ st.needs[Number(ds.need)] = Math.max(0,Number(el.value)||0); await writeDoc('settings','main',st); return; }
   if(ds.bus!==undefined){ st.buses[Number(ds.bus)][ds.bf]=el.value.trim(); await writeDoc('settings','main',st); return; }
